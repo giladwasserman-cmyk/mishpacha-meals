@@ -33,8 +33,13 @@ export default function Home() {
   const dishById = useMemo(() => Object.fromEntries(dishes.map((d) => [d.id, d.name])), [dishes])
   const isWeekday = todayIdx >= 0 && todayIdx <= 4
 
-  const todayDinner = plan.find((p) => p.day === todayIdx && p.meal_type === 'dinner' && p.profile_id == null)
-  const myBreakfast = plan.find((p) => p.day === todayIdx && p.meal_type === 'breakfast' && p.profile_id === profile.id)
+  const names = (rows) => rows.map((r) => dishById[r.dish_id]).filter(Boolean).join(', ')
+  const dinnerShared = plan.filter((p) => p.day === todayIdx && p.meal_type === 'dinner' && p.profile_id == null)
+  const dinnerMine = plan.filter((p) => p.day === todayIdx && p.meal_type === 'dinner' && p.profile_id === profile.id)
+  const breakfastMine = plan.filter((p) => p.day === todayIdx && p.meal_type === 'breakfast' && p.profile_id === profile.id)
+
+  const dinnerText = dinnerShared.length ? names(dinnerShared) : (dinnerMine.length ? names(dinnerMine) : 'עוד לא תוכנן')
+  const dinnerKind = dinnerShared.length ? 'משפחתי' : (dinnerMine.length ? 'שלי' : '')
 
   return (
     <div className="page home">
@@ -45,11 +50,11 @@ export default function Home() {
         {isWeekday ? (
           <>
             <div className="today-dinner">
-              <span className="today-k">לארוחת ערב</span>
-              <strong>{todayDinner ? dishById[todayDinner.dish_id] : 'עוד לא תוכנן'}</strong>
+              <span className="today-k">לארוחת ערב{dinnerKind ? ` (${dinnerKind})` : ''}</span>
+              <strong>{dinnerText}</strong>
             </div>
-            {myBreakfast && (
-              <div className="today-sub">לבוקר שלי: {dishById[myBreakfast.dish_id]}</div>
+            {breakfastMine.length > 0 && (
+              <div className="today-sub">לבוקר שלי: {names(breakfastMine)}</div>
             )}
             <Link to="/week" className="btn primary sm">לתכנון השבוע</Link>
           </>

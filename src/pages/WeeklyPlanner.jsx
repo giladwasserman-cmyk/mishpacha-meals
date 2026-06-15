@@ -45,51 +45,53 @@ export default function WeeklyPlanner() {
 
   const dishById = useMemo(() => Object.fromEntries(dishes.map((d) => [d.id, d])), [dishes])
 
-  const entryFor = (day, meal, pid) =>
-    plan.find((p) => p.day === day && p.meal_type === meal &&
+  // כל המנות במשבצת (יכולות להיות כמה)
+  const rowsFor = (day, meal, pid) =>
+    plan.filter((p) => p.day === day && p.meal_type === meal &&
       ((pid == null && p.profile_id == null) || p.profile_id === pid))
 
-  const assign = async (cell, dishId) => {
-    const existing = entryFor(cell.day, cell.meal_type, cell.profile_id)
-    // מגבלת גיוון לבית ספר: עד SCHOOL_LIMIT פעמים לאותה מנה בשבוע, לאותו ילד
-    if (dishId != null && cell.meal_type === 'school' && cell.profile_id) {
-      const count = plan.filter((p) => p.meal_type === 'school' &&
-        p.profile_id === cell.profile_id && p.dish_id === dishId && p.id !== existing?.id).length
-      if (count >= SCHOOL_LIMIT) {
-        alert(`אפשר לשבץ את אותה מנה לבית ספר עד ${SCHOOL_LIMIT} פעמים בשבוע — בשביל גיוון 🙂`)
-        return
-      }
-    }
-    if (dishId == null) {
-      if (existing) await supabase.from('meal_plan').delete().eq('id', existing.id)
-    } else if (existing) {
-      await supabase.from('meal_plan').update({ dish_id: dishId }).eq('id', existing.id)
+  const toggleDish = async (cell, dishId) => {
+    const rows = rowsFor(cell.day, cell.meal_type, cell.profile_id)
+    const existing = rows.find((r) => r.dish_id === dishId)
+    if (existing) {
+      await supabase.from('meal_plan').delete().eq('id', existing.id)
     } else {
+      // מגבלת גיוון לבית ספר
+      if (cell.meal_type === 'school' && cell.profile_id) {
+        const count = plan.filter((p) => p.meal_type === 'school' &&
+          p.profile_id === cell.profile_id && p.dish_id === dishId).length
+        if (count >= SCHOOL_LIMIT) {
+          alert(`אפשר לשבץ את אותה מנה לבית ספר עד ${SCHOOL_LIMIT} פעמים בשבוע — בשביל גיוון 🙂`)
+          return
+        }
+      }
       await supabase.from('meal_plan').insert({
         household_id: hid, week_start: weekIso, day: cell.day,
         meal_type: cell.meal_type, profile_id: cell.profile_id ?? null, dish_id: dishId,
       })
     }
-    setPicker(null)
     loadPlan()
   }
 
-  // נדנוד גיוון: מנת ערב שחוזרת
-  const dinnerRepeats = useMemo(() => {
-    const counts = {}
-    plan.filter((p) => p.meal_type === 'dinner' && p.profile_id == null && p.dish_id)
-      .forEach((p) => { counts[p.dish_id] = (counts[p.dish_id] || 0) + 1 })
-    return Object.entries(counts).filter(([, c]) => c >= 2)
-      .map(([id]) => dishById[id]?.name).filter(Boolean)
-  }, [plan, dishById])
+  const clearSlot = async (cell) => {
+    const rows = rowsFor(cell.day, cell.meal_type, cell.profile_id)
+    if (!rows.length) return
+    await supabase.from('meal_plan').delete().in('id', rows.map((r) => r.id))
+    loadPlan()
+  }
 
   const Cell = ({ day, meal, pid }) => {
-    const e = entryFor(day, meal, pid)
-    const dish = e ? dishById[e.dish_id] : null
+    const rows = rowsFor(day, meal, pid)
     return (
-      <button className={'cell' + (dish ? ' filled' : '')}
+      <button className={'cell' + (rows.length ? ' filled' : '')}
         onClick={() => setPicker({ day, meal_type: meal, profile_id: pid ?? null, mealLabel: MEAL_LABEL[meal] })}>
-        {dish ? <span className="cell-dish">{dish.name}</span> : <span className="cell-plus">+</span>}
+        {rows.length ? (
+          <span className="cell-dishes">
+            {rows.map((r) => (
+              <span key={r.id} className="cell-dish">{dishById[r.dish_id]?.name || '—'}</span>
+            ))}
+          </span>
+        ) : <span className="cell-plus">+</span>}
       </button>
     )
   }
@@ -117,18 +119,20 @@ export default function WeeklyPlanner() {
         <button className="btn ghost sm" onClick={() => setWeekStart(startOfWeek())}>השבוע הנוכחי</button>
       </div>
 
-      {dinnerRepeats.length > 0 && (
-        <div className="note nudge">לגיוון: {dinnerRepeats.join(', ')} חוזרת השבוע ביותר מערב אחד.</div>
-      )}
-
       <div className="day-headrow">
         <div className="day-spacer" />
         {DAYS.map((d) => <div key={d} className="day-name">{d}</div>)}
       </div>
 
       <section className="block">
-        <h2 className="block-title">🍽️ ארוחת ערב משפחתית</h2>
+        <h2 className="block-title">🍽️ ארוחת ערב</h2>
+        <p className="muted small">משותף לכולם, או לכל אחד מה שבא לו — לא חייבים ארוחה משפחתית כל ערב.</p>
         <TrackRow label="כל המשפחה" meal="dinner" pid={null} accent="#2e6b4c" />
+        {members.map((m) => (
+          <TrackRow key={m.id}
+            label={(m.display_name || 'בלי שם') + (m.id === profile.id ? ' (אני)' : '')}
+            meal="dinner" pid={m.id} accent={m.color} />
+        ))}
       </section>
 
       <section className="block">
@@ -137,7 +141,7 @@ export default function WeeklyPlanner() {
       </section>
 
       <section className="block">
-        <h2 className="block-title">🎒 הילדים</h2>
+        <h2 className="block-title">🎒 ילדים — צהריים ובית ספר</h2>
         {kids.length === 0 && <p className="muted small">עדיין אין ילדים במשפחה. אפשר להוסיף ממסך "המשפחה".</p>}
         {kids.map((k) => {
           const open = openKids[k.id] ?? true
@@ -152,7 +156,6 @@ export default function WeeklyPlanner() {
                 <div className="kid-tracks">
                   <TrackRow label="צהריים" meal="lunch" pid={k.id} accent={k.color} />
                   <TrackRow label="בית ספר" meal="school" pid={k.id} accent={k.color} />
-                  <TrackRow label="ערב (חלופה)" meal="dinner" pid={k.id} accent={k.color} />
                 </div>
               )}
             </div>
@@ -161,6 +164,8 @@ export default function WeeklyPlanner() {
       </section>
 
       {picker && (() => {
+        const slotRows = rowsFor(picker.day, picker.meal_type, picker.profile_id)
+        const selected = new Set(slotRows.map((r) => r.dish_id))
         const schoolCounts = {}
         if (picker.meal_type === 'school') {
           plan.filter((p) => p.meal_type === 'school' && p.profile_id === picker.profile_id && p.dish_id)
@@ -169,10 +174,9 @@ export default function WeeklyPlanner() {
         return (
           <DishPicker
             cell={picker} dishes={dishes}
-            current={entryFor(picker.day, picker.meal_type, picker.profile_id)?.dish_id}
-            counts={schoolCounts} limit={SCHOOL_LIMIT}
-            onPick={(id) => assign(picker, id)}
-            onClear={() => assign(picker, null)}
+            selected={selected} counts={schoolCounts} limit={SCHOOL_LIMIT}
+            onToggle={(id) => toggleDish(picker, id)}
+            onClear={() => clearSlot(picker)}
             onClose={() => setPicker(null)}
           />
         )
@@ -181,7 +185,7 @@ export default function WeeklyPlanner() {
   )
 }
 
-function DishPicker({ cell, dishes, current, counts = {}, limit = 3, onPick, onClear, onClose }) {
+function DishPicker({ cell, dishes, selected, counts = {}, limit = 3, onToggle, onClear, onClose }) {
   const [q, setQ] = useState('')
   const isSchool = cell.meal_type === 'school'
   const list = dishes
@@ -193,20 +197,28 @@ function DishPicker({ cell, dishes, current, counts = {}, limit = 3, onPick, onC
         <div className="sheet-handle" />
         <div className="picker-head">
           <strong>{DAYS[cell.day]} · {cell.mealLabel}</strong>
-          {current && <button className="link danger" onClick={onClear}>נקה משבצת</button>}
+          {selected.size > 0 && <button className="link danger" onClick={onClear}>נקה הכל</button>}
         </div>
-        {isSchool && <p className="muted small">לגיוון: אותה מנה עד {limit} פעמים בשבוע.</p>}
+        <p className="muted small">
+          {isSchool
+            ? `אפשר לבחור כמה מנות. לגיוון: אותה מנה עד ${limit} פעמים בשבוע.`
+            : 'אפשר לבחור כמה מנות — לחיצה מוסיפה או מסירה.'}
+        </p>
         <input className="search" placeholder="חיפוש מנה…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
         <div className="picker-list">
           {list.length === 0 && <p className="muted small">אין מנות ל{cell.mealLabel}. צור מנה בבנק.</p>}
           {list.map((d) => {
+            const isSel = selected.has(d.id)
             const used = counts[d.id] || 0
-            const atLimit = isSchool && used >= limit && d.id !== current
+            const atLimit = isSchool && used >= limit && !isSel
             return (
               <button key={d.id} disabled={atLimit}
-                className={'picker-item' + (d.id === current ? ' on' : '') + (atLimit ? ' disabled' : '')}
-                onClick={() => !atLimit && onPick(d.id)}>
-                <span>{d.name}</span>
+                className={'picker-item' + (isSel ? ' on' : '') + (atLimit ? ' disabled' : '')}
+                onClick={() => !atLimit && onToggle(d.id)}>
+                <span className="pick-name">
+                  <span className={'check' + (isSel ? ' on' : '')}>{isSel ? '✓' : ''}</span>
+                  {d.name}
+                </span>
                 <span className="picker-tags">
                   {atLimit ? `כבר ${limit} פעמים השבוע` : (d.tags?.slice(0, 2).join(' · '))}
                 </span>
@@ -214,6 +226,7 @@ function DishPicker({ cell, dishes, current, counts = {}, limit = 3, onPick, onC
             )
           })}
         </div>
+        <button className="btn primary block done-btn" onClick={onClose}>סיום</button>
       </div>
     </div>
   )

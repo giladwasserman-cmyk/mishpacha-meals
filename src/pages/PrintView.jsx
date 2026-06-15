@@ -28,9 +28,9 @@ export default function PrintView() {
   const kids = members.filter((m) => m.role === 'kid')
 
   const cell = (day, meal, pid) => {
-    const e = plan.find((p) => p.day === day && p.meal_type === meal &&
+    const rows = plan.filter((p) => p.day === day && p.meal_type === meal && p.dish_id &&
       ((pid == null && p.profile_id == null) || p.profile_id === pid))
-    return e ? dishById[e.dish_id] : ''
+    return rows.map((r) => dishById[r.dish_id]).filter(Boolean).join(', ')
   }
 
   const shopGrouped = CATEGORIES
@@ -54,9 +54,12 @@ export default function PrintView() {
           </thead>
           <tbody>
             <tr className="row-strong">
-              <td>ערב משפחתי</td>
+              <td>ערב · משפחתי</td>
               {DAYS.map((_, d) => <td key={d}>{cell(d, 'dinner', null)}</td>)}
             </tr>
+            {members.map((m) => (
+              <tr key={m.id + 'din'}><td>{m.display_name} · ערב</td>{DAYS.map((_, d) => <td key={d}>{cell(d, 'dinner', m.id)}</td>)}</tr>
+            ))}
             {kids.map((k) => (
               <Fragment key={k.id}>
                 <tr><td>{k.display_name} · צהריים</td>{DAYS.map((_, d) => <td key={d}>{cell(d, 'lunch', k.id)}</td>)}</tr>
