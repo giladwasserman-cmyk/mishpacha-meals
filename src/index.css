@@ -207,10 +207,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
 .track { display: grid; grid-template-columns: 76px 1fr; gap: 6px; margin-bottom: 6px; align-items: stretch; }
 .track-label { font-size: 12px; font-weight: 600; color: var(--ink); display: flex; align-items: center; padding-inline-start: 8px; border-inline-start: 3px solid var(--herb); border-radius: 3px; }
 .track-cells { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.cell { border: 1px dashed var(--line); background: #fff; border-radius: 10px; min-height: 52px; padding: 5px; font-size: 11.5px; color: var(--ink); display: flex; align-items: center; justify-content: center; text-align: center; }
+.cell { border: 1px dashed var(--line); background: #fff; border-radius: 10px; min-height: 52px; padding: 5px; font-size: 11.5px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3px; }
 .cell.filled { border-style: solid; background: #eef4ec; font-weight: 600; }
 .cell-plus { color: #cbd3c8; font-size: 20px; }
-.cell-dish { line-height: 1.2; }
+.cell-dishes { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+.cell-dish { line-height: 1.2; padding: 2px 3px; background: #fff; border-radius: 5px; }
+.cell-dishes .cell-dish + .cell-dish { border-top: 1px solid #d9e6dd; }
 .kid-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
 .kid-head { width: 100%; display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 4px 0; }
 .kid-head strong { font-size: 15px; }
@@ -223,6 +225,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
 .picker-item.on { border-color: var(--herb); background: #eef4ec; }
 .picker-item.disabled { opacity: .5; cursor: not-allowed; }
 .picker-item.disabled .picker-tags { color: var(--tomato); }
+.pick-name { display: flex; align-items: center; gap: 8px; }
+.check { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line); display: inline-grid; place-content: center; font-size: 12px; color: #fff; flex: none; }
+.check.on { background: var(--herb); border-color: var(--herb); }
+.done-btn { margin-top: 12px; position: sticky; bottom: 0; }
 .picker-tags { font-size: 11px; color: var(--muted); }
 
 /* ---------- shopping ---------- */
