@@ -80,6 +80,23 @@
 .foodlog textarea { resize: vertical; min-height: 56px; }
 .foodlog label.field-label { display: block; font-size: 11px; color: var(--ink-faint); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 
+/* פקדי תאריך ושעה מובנים.
+   iOS Safari מוריש dir=rtl אל תוך הפקד, וה-bidi מסדר מחדש את
+   המקטעים — "2 Aug 2026" מוצג כ-"Aug 2026 2". כרום כופה ltr
+   פנימית ולכן זה לא נראה בדסקטופ.
+   תאריך ושעה הם נתונים מובנים ונקראים משמאל לימין בכל שפה,
+   אז אנחנו קובעים זאת במפורש ומיישרים לימין כדי להישאר עקביים
+   עם שאר השדות בפריסת RTL.
+   min-width:0 מונע מהרוחב המובנה של הפקד לדחוף את הדף
+   רחב מהמסך. */
+.foodlog input[type=date],
+.foodlog input[type=time] {
+  direction: ltr;
+  min-width: 0;
+}
+.foodlog[dir=rtl] input[type=date],
+.foodlog[dir=rtl] input[type=time] { text-align: right; }
+
 .foodlog .btn { display: inline-block; padding: 9px 16px; border-radius: 3px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-size: 13px; cursor: pointer; font-family: var(--font-ui); }
 .foodlog .btn:hover { background: var(--accent-deep); }
 .foodlog .btn.secondary { background: none; color: var(--ink-soft); border-color: var(--line-strong); }
@@ -165,6 +182,13 @@
 
 .foodlog .weight-form { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .foodlog .weight-form .f { flex: 1; min-width: 110px; }
+/* במסך טלפון שלושה שדות בשורה אחת יוצאים דחוסים מדי —
+   התאריך, המשקל וכפתור השמירה נערמים במקום להצטופף. */
+@media (max-width: 430px) {
+  .foodlog .weight-form { flex-direction: column; align-items: stretch; }
+  .foodlog .weight-form .f { min-width: 0; }
+  .foodlog .weight-form .btn { width: 100%; }
+}
 .foodlog .weight-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 .foodlog .weight-row .del { background: none; border: none; color: var(--ink-faint); cursor: pointer; font-size: 14px; }
 .foodlog .legend { display: flex; gap: 14px; font-size: 11px; color: var(--ink-faint); margin-top: 8px; flex-wrap: wrap; }
