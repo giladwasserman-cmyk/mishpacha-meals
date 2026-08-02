@@ -33,11 +33,19 @@ const MAX_BODY_BYTES = 8 * 1024 * 1024; // תמונה ב-base64 תופחת פי 
 const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
+// כתובות רשת פרטית (RFC1918) — כדי שאפשר יהיה לבדוק מהטלפון
+// מול שרת הפיתוח באותה רשת Wi-Fi, בלי לקבע IP שמשתנה.
+// רלוונטי רק לענף ברירת המחדל; ברגע ש-ALLOWED_ORIGINS מוגדר,
+// הרשימה המפורשת גוברת וזה מתבטל.
+const PRIVATE_LAN =
+  /^http:\/\/(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
 function isAllowed(origin: string): boolean {
   if (!origin) return false;
   if (ALLOWED.length) return ALLOWED.includes(origin);
   return /^http:\/\/localhost(:\d+)?$/.test(origin) ||
     /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+    PRIVATE_LAN.test(origin) ||
     /^https:\/\/[\w-]*mishpacha-meals[\w-]*\.vercel\.app$/.test(origin);
 }
 
