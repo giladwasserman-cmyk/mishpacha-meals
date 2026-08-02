@@ -305,7 +305,11 @@ export function fileToBase64(f) {
 }
 
 /* ================= Nutrition estimate — בניית ההודעה =================
-   הפרומפט והסכמה זהים מילה במילה למקור (food-tracker.html:394–408).
+   מבוסס על food-tracker.html:394–408. הסכמה והמבנה זהים למקור;
+   נוספו שתי הנחיות אחרי ש-Haiku העריך "קפוצ׳ינו קטן עם חלב 3%"
+   כ-250 מ״ל וספר כמעט את כל הנפח כחלב — 120 קק״ל ו-5 גר׳ חלבון
+   במקום כ-45 ו-2.3. שתי שגיאות נפרדות: נפח מוגזם, וספירת נפח
+   הכוס כולו כמרכיב קלורי.
    הקריאה עצמה עברה ל-foodLogApi.js, שפונה ל-Edge Function. */
 export function buildEstimateMessages({ description, meal, imageBase64, imageMediaType, note }, lang, t) {
   const mealText = t.mealLabel(meal);
@@ -313,6 +317,8 @@ export function buildEstimateMessages({ description, meal, imageBase64, imageMed
   const schema = 'Return ONLY valid JSON (no markdown fences, no commentary) matching exactly: ' +
     '{"items":[{"name":"string","portion":"string"}],"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"sodium_mg":number,"confidence":"low"|"medium"|"high"}. ' +
     'Use standard nutrition-database values for common foods and typical adult portions. Israeli supermarket products and restaurant dishes are likely. ' +
+    'For drinks, count only the caloric ingredients actually in the cup. Espresso, water, tea and the air whipped into foam add volume but almost no calories, so never treat the total cup volume as if it were all milk — a cappuccino is mostly foam and espresso by volume. ' +
+    'When the size is given only as a word like "small", "regular" or "large", do not silently assume a large serving: choose the smaller end of the plausible range, state the assumed amount in "portion", and set confidence to "low". ' +
     'If portion size is unclear, assume a typical serving and set confidence to "low". ' +
     'Write "name" and "portion" in ' + langName + '. Numeric fields are plain numbers, no units.';
   let content;

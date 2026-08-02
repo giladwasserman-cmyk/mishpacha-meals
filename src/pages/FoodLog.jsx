@@ -16,7 +16,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import * as store from '../lib/foodLogStore'
-import { estimateNutrition } from '../lib/foodLogApi'
+import { estimateNutrition, MODEL_SONNET } from '../lib/foodLogApi'
 import {
   makeT, MEALS, FONTS, DEFAULT_FONT, defaultSettings, defaultPlan,
   isoDate, displayDate, shiftDate, nowTime, dayTotals, checkEntry,
@@ -199,10 +199,13 @@ export default function FoodLog() {
     setReviewFields(scaleFields(reviewBase, s))
   }
 
+  /* Sonnet ולא ברירת המחדל Haiku — מסלול השדרוג שהשלד הגדיר מראש
+     "אם Haiku לא יימצא מדויק מספיק". הוא נמצא בכל מקרה ברשימה
+     המותרת בשרת, אז הלקוח לא יכול לבקש משהו יקר יותר מזה. */
   const runEstimate = async (payload) => {
     setLoading(true); setError(null)
     try {
-      return await estimateNutrition(payload, lang, t)
+      return await estimateNutrition(payload, lang, t, { model: MODEL_SONNET })
     } catch (e) {
       setError(e?.message || t.tr('couldNotEstimate'))
       return null
