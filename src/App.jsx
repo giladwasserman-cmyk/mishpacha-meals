@@ -9,6 +9,7 @@ import WeeklyPlanner from './pages/WeeklyPlanner'
 import ShoppingList from './pages/ShoppingList'
 import CookingPlan from './pages/CookingPlan'
 import NutritionProfile from './pages/NutritionProfile'
+import FoodLog from './pages/FoodLog'
 import Family from './pages/Family'
 import PrintView from './pages/PrintView'
 
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/shopping" element={<ShoppingList />} />
           <Route path="/cooking" element={<CookingPlan />} />
           <Route path="/nutrition" element={<NutritionProfile />} />
+          <Route path="/food-log" element={<FoodLog />} />
           <Route path="/family" element={<Family />} />
           <Route path="/print" element={<PrintView />} />
           <Route path="*" element={<Navigate to="/" replace />} />

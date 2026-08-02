@@ -58,6 +58,7 @@ export default function Nav() {
             </div>
             <button className="sheet-link" onClick={() => go('/cooking')}>👩‍🍳 תכנון בישול</button>
             <button className="sheet-link" onClick={() => go('/nutrition')}>🥗 התזונה שלי</button>
+            <button className="sheet-link" onClick={() => go('/food-log')}>📔 יומן אכילה</button>
             <button className="sheet-link" onClick={() => go('/family')}>👨‍👩‍👧 המשפחה</button>
             <button className="sheet-link" onClick={() => go('/print')}>🖨️ הדפסה / שמירה כ‑PDF</button>
             <button className="sheet-link danger" onClick={logout}>התנתקות</button>
