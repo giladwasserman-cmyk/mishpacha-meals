@@ -3,10 +3,13 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 
+// יומן האכילה נמצא בסרגל התחתון ולא ב"עוד", כי רושמים בו
+// כמה פעמים ביום. בנק המנות ירד לתפריט — נכנסים אליו כשמוסיפים
+// מנה חדשה, לא באופן יומיומי.
 const TABS = [
   { to: '/', label: 'בית', icon: '🏠', end: true },
   { to: '/week', label: 'השבוע', icon: '🗓️' },
-  { to: '/bank', label: 'מנות', icon: '🍲' },
+  { to: '/food-log', label: 'יומן', icon: '📔' },
   { to: '/shopping', label: 'קניות', icon: '🛒' },
 ]
 
@@ -56,6 +59,7 @@ export default function Nav() {
                 <div className="muted small">{household?.name}</div>
               </div>
             </div>
+            <button className="sheet-link" onClick={() => go('/bank')}>🍲 בנק המנות</button>
             <button className="sheet-link" onClick={() => go('/cooking')}>👩‍🍳 תכנון בישול</button>
             <button className="sheet-link" onClick={() => go('/nutrition')}>🥗 התזונה שלי</button>
             <button className="sheet-link" onClick={() => go('/family')}>👨‍👩‍👧 המשפחה</button>
