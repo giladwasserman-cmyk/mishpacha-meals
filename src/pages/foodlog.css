@@ -144,6 +144,41 @@
 .foodlog .fav-chip .kc { font-family: var(--font-data); font-size: 10px; color: var(--ink-faint); margin-inline-start: 5px; }
 .foodlog .fav-chip .x { margin-inline-start: 6px; color: var(--ink-faint); }
 
+/* ---- בנק הרכיבים ---- */
+.foodlog .comp-list { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; margin-bottom: 4px; }
+/* ריפוד אופקי על כל שורה, לא רק על הנבחרת. עם margin שלילי על
+   הנבחרת בלבד הרשימה גלשה ב-8px והופיע פס גלילה אופקי. */
+.foodlog .comp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+.foodlog .comp-row:last-child { border-bottom: none; }
+.foodlog .comp-row.on { background: var(--accent-soft); border-radius: 3px; }
+.foodlog .comp-meta { flex: 1; min-width: 0; }
+.foodlog .comp-name { font-size: 14px; }
+/* isolate מונע מהיחידה ומהשם לזלוג זה לזה: "גבינה בולגרית 5%"
+   ליד "30 גרם" מתערבבים בלעדיו, כי ה-bidi רואה רצף אחד. */
+.foodlog .comp-unit { font-size: 10px; color: var(--ink-faint); margin-inline-start: 6px; unicode-bidi: isolate; }
+/* שורה אחת עם חיתוך: העירוב של עברית ומספרים נשבר מכוער לשתי שורות */
+.foodlog .comp-sub { font-family: var(--font-data); font-size: 10px; color: var(--ink-faint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.foodlog .comp-qty { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.foodlog .comp-qty button { width: 28px; height: 28px; border: 1px solid var(--line-strong); background: var(--card); border-radius: 3px; font-size: 15px; cursor: pointer; color: var(--ink-soft); line-height: 1; }
+.foodlog .comp-qty button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-deep); }
+.foodlog .comp-qty button:disabled { opacity: 0.35; cursor: default; }
+/* שדה הכמות — נוסף על כפתורי ±, כדי שאפשר יהיה להקליד 0.7 */
+.foodlog .comp-qty input[type=number] {
+  width: 44px; padding: 4px 2px; text-align: center;
+  font-family: var(--font-data); font-size: 13px; color: var(--ink-faint);
+  border: 1px solid transparent; background: none; border-radius: 3px;
+  -moz-appearance: textfield;
+}
+.foodlog .comp-qty input[type=number]::-webkit-outer-spin-button,
+.foodlog .comp-qty input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.foodlog .comp-qty input[type=number].on { color: var(--accent-deep); font-weight: 600; }
+.foodlog .comp-qty input[type=number]:focus { border-color: var(--line-strong); background: #fff; outline: none; }
+.foodlog .btn.small { padding: 6px 11px; font-size: 12px; }
+.foodlog .compose-total { margin-top: 14px; border-top: 1px dashed var(--line-strong); padding-top: 12px; }
+.foodlog .compose-desc { font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.foodlog .compose-nums { font-family: var(--font-data); font-size: 12px; color: var(--ink-faint); margin-top: 6px; }
+.foodlog .compose-nums strong { font-size: 17px; color: var(--ink); }
+
 .foodlog .entry { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); gap: 10px; }
 .foodlog .entry:last-child { border-bottom: none; }
 .foodlog .entry .meta { flex: 1; }

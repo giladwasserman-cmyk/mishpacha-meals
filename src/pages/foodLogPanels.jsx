@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react'
 import {
   FONTS, computeTrend, trendRate, splurgeCount, fmt, fmt1, isoDate, displayDate,
+  composeTotals, composeDescription,
 } from '../lib/foodLogCore'
 
 /* דגלי בדיקת התוכנית — flagsHtml במקור (שורות 591–594) */
@@ -15,6 +16,169 @@ export function Flags({ flags }) {
   return (
     <div className="flags">
       {flags.map((f, i) => <div className={'flag ' + f.sev} key={i}>{f.text}</div>)}
+    </div>
+  )
+}
+
+/* ================= בנק הרכיבים =================
+   מצב שלישי בהוספת רשומה, לצד "ידני" ו"תמונה".
+   בוחרים רכיבים וכמויות, והסכום הוא חשבון פשוט — אפס קריאות API.
+   התוצאה עוברת לאותו מסך סקירה של שאר המצבים, כך שבדיקת התוכנית
+   והעריכה הידנית זהות. */
+export function ComposePanel({
+  components, picks, setPicks, t, busy,
+  onSeed, onAddComponent, onDeleteComponent, onContinue,
+}) {
+  const L = t.locale()
+  const [managing, setManaging] = useState(false)
+  const [adding, setAdding] = useState(false)
+
+  const qtyOf = (id) => picks.find((p) => p.component.id === id)?.qty || 0
+
+  /* הבחירות נשמרות ממוינות לפי סדר הבנק, כדי שהתיאור שנבנה
+     יהיה יציב ולא יושפע מסדר ההקלקות. */
+  const put = (prev, component, qty) => {
+    const rest = prev.filter((p) => p.component.id !== component.id)
+    const next = qty > 0 ? [...rest, { component, qty }] : rest
+    return next.sort((a, b) =>
+      (a.component.sort_order - b.component.sort_order) ||
+      a.component.name.localeCompare(b.component.name))
+  }
+
+  const setQty = (component, qty) => setPicks((prev) => put(prev, component, qty))
+
+  /* חייב להיות עדכון פונקציונלי: שתי לחיצות רצופות על + קוראות
+     אחרת את אותו state ישן, והשנייה פשוט כותבת שוב 1.
+     צעד של 1, כי רוב השימוש הוא במספרים שלמים; כמויות חלקיות
+     כמו 0.7 כוס חלב מוקלדות ישירות בשדה. */
+  const bump = (component, delta) => setPicks((prev) => {
+    const cur = prev.find((p) => p.component.id === component.id)?.qty || 0
+    return put(prev, component, Math.max(0, Math.round((cur + delta) * 10) / 10))
+  })
+
+  const totals = composeTotals(picks)
+  const chosen = picks.length > 0
+
+  if (!components.length) {
+    return (
+      <div>
+        <div className="empty-state">{t.tr('noComponents')}</div>
+        <div className="btn-row">
+          <button className="btn" disabled={busy} onClick={onSeed}>{t.tr('addBaseSet')}</button>
+          <button className="btn secondary" onClick={() => setAdding(true)}>{t.tr('newComponent')}</button>
+        </div>
+        {adding && <ComponentForm t={t} busy={busy}
+          onCancel={() => setAdding(false)}
+          onSave={async (c) => { await onAddComponent(c); setAdding(false) }} />}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="comp-list">
+        {components.map((c) => {
+          const q = qtyOf(c.id)
+          return (
+            <div className={'comp-row' + (q > 0 ? ' on' : '')} key={c.id}>
+              <div className="comp-meta">
+                <div className="comp-name">
+                  {c.name}{c.unit && <span className="comp-unit">{c.unit}</span>}
+                </div>
+                <div className="comp-sub">
+                  {fmt(c.calories, L)} {t.tr('kcal')} · {t.tr('abbrProtein')} {c.protein_g}{t.tr('gUnit')}
+                </div>
+              </div>
+              {managing ? (
+                <button className="act del" title={t.tr('editComponent')}
+                  onClick={() => onDeleteComponent(c)}>×</button>
+              ) : (
+                <div className="comp-qty">
+                  <button onClick={() => bump(c, -1)} disabled={q <= 0} aria-label="-">−</button>
+                  <input type="number" step="0.1" min="0" value={q || ''} placeholder="0"
+                    className={q > 0 ? 'on' : ''}
+                    onChange={(e) => setQty(c, Math.max(0, Number(e.target.value) || 0))} />
+                  <button onClick={() => bump(c, 1)} aria-label="+">+</button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="btn-row">
+        <button className="btn secondary small" onClick={() => setAdding(true)}>+ {t.tr('newComponent')}</button>
+        <button className="btn secondary small" onClick={() => setManaging((m) => !m)}>
+          {managing ? t.tr('cancel') : t.tr('manageComponents')}
+        </button>
+      </div>
+
+      {adding && <ComponentForm t={t} busy={busy}
+        onCancel={() => setAdding(false)}
+        onSave={async (c) => { await onAddComponent(c); setAdding(false) }} />}
+
+      {chosen ? (
+        <div className="compose-total">
+          <div className="compose-desc">{composeDescription(picks)}</div>
+          <div className="compose-nums">
+            <strong>{fmt(totals.calories, L)}</strong> {t.tr('kcal')} ·{' '}
+            {t.tr('abbrProtein')} {totals.protein_g}{t.tr('gUnit')} ·{' '}
+            {t.tr('abbrCarbs')} {totals.carbs_g}{t.tr('gUnit')} ·{' '}
+            {t.tr('abbrFat')} {totals.fat_g}{t.tr('gUnit')}
+          </div>
+          <div className="btn-row">
+            <button className="btn" onClick={onContinue}>{t.tr('composeContinue')}</button>
+            <button className="btn secondary" onClick={() => setPicks([])}>{t.tr('cancel')}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="estimate-note">{t.tr('composeEmpty')}</div>
+      )}
+    </div>
+  )
+}
+
+/* טופס רכיב חדש. אפשר להזין ערכים ידנית, או לתת ל-AI להעריך
+   פעם אחת — וזו הנקודה: ההערכה קורית פעם אחת בחיי הרכיב. */
+function ComponentForm({ t, busy, onCancel, onSave }) {
+  const [f, setF] = useState({
+    name: '', unit: '', calories: '', protein_g: '', carbs_g: '', fat_g: '', fiber_g: '', sodium_mg: '',
+  })
+  const set = (k, v) => setF((p) => ({ ...p, [k]: v }))
+  const num = (v) => Number(v) || 0
+
+  return (
+    <div className="review">
+      <label className="field-label">{t.tr('componentName')}</label>
+      <input type="text" value={f.name} placeholder={t.tr('componentDescPlaceholder')}
+        onChange={(e) => set('name', e.target.value)} />
+
+      <label className="field-label">{t.tr('componentUnit')}</label>
+      <input type="text" value={f.unit} placeholder={t.tr('unitPlaceholder')}
+        onChange={(e) => set('unit', e.target.value)} />
+
+      <div className="review-grid" style={{ marginTop: 10 }}>
+        {[['calories', 'calories', null], ['protein_g', 'protein', 'gUnit'],
+          ['carbs_g', 'carbs', 'gUnit'], ['fat_g', 'fat', 'gUnit'],
+          ['fiber_g', 'fiber', 'gUnit'], ['sodium_mg', 'sodium', 'mgUnit']].map(([key, labK, unitK]) => (
+          <div className="f" key={key}>
+            <label>{t.tr(labK)}{unitK ? ` (${t.tr(unitK)})` : ''}</label>
+            <input type="number" value={f[key]} onChange={(e) => set(key, e.target.value)} />
+          </div>
+        ))}
+      </div>
+
+      <div className="estimate-note">{t.tr('perUnitNote')}</div>
+
+      <div className="btn-row">
+        <button className="btn" disabled={busy || !f.name.trim()}
+          onClick={() => onSave({
+            name: f.name.trim(), unit: f.unit.trim(),
+            calories: num(f.calories), protein_g: num(f.protein_g), carbs_g: num(f.carbs_g),
+            fat_g: num(f.fat_g), fiber_g: num(f.fiber_g), sodium_mg: num(f.sodium_mg),
+          })}>{t.tr('saveToBank')}</button>
+        <button className="btn secondary" onClick={onCancel}>{t.tr('cancel')}</button>
+      </div>
     </div>
   )
 }

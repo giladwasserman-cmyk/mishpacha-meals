@@ -77,7 +77,20 @@ export const I18N = {
     ceilingWouldNear: 'This brings the day to {n} kcal — {left} left under the line.',
     remaining: 'left today', overBy: 'over',
     ceilingDays: 'Days over the line',
-    titleFont: 'Title font'
+    titleFont: 'Title font',
+    // component bank
+    compose: 'Build', componentBank: 'Component bank',
+    noComponents: 'Your bank is empty. Add a component, or start from the base set.',
+    addBaseSet: 'Add base components', baseSetAdded: 'Base components added',
+    newComponent: 'New component', componentName: 'Name', componentUnit: 'Unit',
+    unitPlaceholder: 'e.g. one, slice, 100 g',
+    componentDescPlaceholder: 'e.g. one large egg',
+    perUnitNote: 'Values are per one unit. Estimated once, then reused — no guessing again later.',
+    saveToBank: 'Save to bank', componentSaved: 'Saved to bank',
+    editComponent: 'Edit', confirmDeleteComponent: 'Remove this component from the bank?',
+    composeEmpty: 'Pick components to build a meal.',
+    composeTotal: 'Total', composeContinue: 'Review and add',
+    manageComponents: 'Manage the bank'
   },
   he: {
     appTitle: 'יומן אכילה', tabLog: 'יומן', tabWeek: 'שבוע', tabWeight: 'משקל', today: 'היום',
@@ -145,7 +158,20 @@ export const I18N = {
     ceilingWouldNear: 'זה מביא את היום ל-{n} קק"ל — נותרו {left} עד הקו.',
     remaining: 'נותרו היום', overBy: 'מעל',
     ceilingDays: 'ימים מעל הקו',
-    titleFont: 'גופן הכותרת'
+    titleFont: 'גופן הכותרת',
+    // בנק הרכיבים
+    compose: 'הרכבה', componentBank: 'בנק הרכיבים',
+    noComponents: 'הבנק ריק. הוסיפו רכיב, או התחילו מסט הבסיס.',
+    addBaseSet: 'הוספת רכיבי בסיס', baseSetAdded: 'רכיבי הבסיס נוספו',
+    newComponent: 'רכיב חדש', componentName: 'שם', componentUnit: 'יחידה',
+    unitPlaceholder: 'לדוגמה: יחידה, פרוסה, 100 גרם',
+    componentDescPlaceholder: 'לדוגמה: ביצה גדולה אחת',
+    perUnitNote: 'הערכים הם ליחידה אחת. מעריכים פעם אחת ומכאן זה חוזר על עצמו — בלי לנחש מחדש בכל פעם.',
+    saveToBank: 'שמירה לבנק', componentSaved: 'הרכיב נשמר',
+    editComponent: 'עריכה', confirmDeleteComponent: 'למחוק את הרכיב מהבנק?',
+    composeEmpty: 'בחרו רכיבים כדי להרכיב ארוחה.',
+    composeTotal: 'סה״כ', composeContinue: 'לסקירה והוספה',
+    manageComponents: 'ניהול הבנק'
   }
 };
 
@@ -292,6 +318,30 @@ export function fmt1(n) { return (Number(n) || 0).toFixed(1); }
 export function splurgeCount(weekDays, plan) {
   const p = plan || defaultPlan;
   return weekDays.filter((d) => d.totals.carbs_g > p.carbSplurgeDay).length;
+}
+
+/* ================= בנק הרכיבים =================
+   סכימה של רכיבים נבחרים לכדי ארוחה אחת. זה כפל וחיבור בלבד —
+   אין כאן קריאת API ואין שונות: אותה חביתה תיתן אותם מספרים
+   בכל פעם. הערכים מעוגלים לספרה אחת אחרי הנקודה, כי רכיבים
+   כמו סיבים בירק בודד נעלמים בעיגול לשלם. */
+const MACRO_KEYS = ['calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'sodium_mg'];
+
+export function composeTotals(picks) {
+  const t = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sodium_mg: 0 };
+  for (const { component, qty } of picks) {
+    const q = Number(qty) || 0;
+    for (const k of MACRO_KEYS) t[k] += (Number(component[k]) || 0) * q;
+  }
+  for (const k of MACRO_KEYS) t[k] = Math.round(t[k] * 10) / 10;
+  return t;
+}
+
+/* "ביצה ×1, חלבון ביצה ×2, גבינה בולגרית 5%" — כמות 1 לא מצוינת */
+export function composeDescription(picks) {
+  return picks
+    .map(({ component, qty }) => component.name + (Number(qty) === 1 ? '' : ' ×' + qty))
+    .join(', ');
 }
 
 /* ================= Photo helper ================= */

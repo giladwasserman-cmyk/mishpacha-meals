@@ -222,12 +222,84 @@ export async function removeFavourite(userId, id) {
   if (error) throw error
 }
 
-/* ---------- 5. Clear all ----------
+/* ---------- 5. Components (בנק הרכיבים) ----------
+   הערכים נשמרים ליחידה אחת. ההרכבה עצמה היא כפל וחיבור בצד
+   הלקוח, כך שרכיב מוערך פעם אחת ומכאן ואילך השימוש בו לא עולה
+   קריאת API ולא משתנה בין פעם לפעם. */
+function rowToComponent(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    unit: r.unit || '',
+    calories: num(r.calories),
+    protein_g: num(r.protein_g),
+    carbs_g: num(r.carbs_g),
+    fat_g: num(r.fat_g),
+    fiber_g: num(r.fiber_g),
+    sodium_mg: num(r.sodium_mg),
+    sort_order: Number(r.sort_order) || 0,
+  }
+}
+
+function componentToRow(userId, c) {
+  return {
+    user_id: userId,
+    name: c.name,
+    unit: c.unit || null,
+    calories: num(c.calories),
+    protein_g: num(c.protein_g),
+    carbs_g: num(c.carbs_g),
+    fat_g: num(c.fat_g),
+    fiber_g: num(c.fiber_g),
+    sodium_mg: num(c.sodium_mg),
+    sort_order: Number(c.sort_order) || 0,
+  }
+}
+
+export async function loadComponents(userId) {
+  const { data, error } = await supabase
+    .from('food_components').select('*')
+    .eq('user_id', userId)
+    .order('sort_order', { ascending: true }).order('name', { ascending: true })
+  if (error) throw error
+  return (data || []).map(rowToComponent)
+}
+
+export async function addComponent(userId, c) {
+  const { data, error } = await supabase
+    .from('food_components').insert(componentToRow(userId, c)).select().single()
+  if (error) throw error
+  return rowToComponent(data)
+}
+
+export async function updateComponent(userId, id, c) {
+  const { data, error } = await supabase
+    .from('food_components').update(componentToRow(userId, c))
+    .eq('user_id', userId).eq('id', id).select().single()
+  if (error) throw error
+  return rowToComponent(data)
+}
+
+export async function deleteComponent(userId, id) {
+  const { error } = await supabase
+    .from('food_components').delete().eq('user_id', userId).eq('id', id)
+  if (error) throw error
+}
+
+/* הכנסת סט הבסיס. נקרא רק כשהבנק ריק, ומחזיר את הבנק המלא. */
+export async function seedComponents(userId, list) {
+  const { error } = await supabase
+    .from('food_components').insert(list.map((c) => componentToRow(userId, c)))
+  if (error) throw error
+  return loadComponents(userId)
+}
+
+/* ---------- 6. Clear all ----------
    במקור: storage.list ואז מחיקת כל מפתח פרט ל-lang (שורות 540–547).
    כאן: מרוקנים את שלוש הטבלאות ומאפסים את config — ו-lang נשאר
    על כנו, כי הוא עמודה נפרדת באותה שורה. */
 export async function clearAllData(userId) {
-  for (const table of ['food_entries', 'weights', 'food_favourites']) {
+  for (const table of ['food_entries', 'weights', 'food_favourites', 'food_components']) {
     const { error } = await supabase.from(table).delete().eq('user_id', userId)
     if (error) throw error
   }
