@@ -84,6 +84,7 @@ export default function FoodLog() {
 
   // ---- add-entry form ----
   const [form, setForm] = useState(() => ({ meal: 'breakfast', time: nowTime(), desc: '', note: '' }))
+  const [timeTouched, setTimeTouched] = useState(false)
   const [photo, setPhoto] = useState(null) // { base64, mediaType }
   const [reviewBase, setReviewBase] = useState(null)
   const [reviewScale, setReviewScale] = useState(1)
@@ -169,6 +170,29 @@ export default function FoodLog() {
 
   useEffect(() => { reloadDays() }, [reloadDays])
 
+  /* שדה השעה ממשיך לעקוב אחרי "עכשיו" כל עוד לא נגעת בו ידנית.
+     בלי זה הוא נתקע על השעה שבה נטען הדף — פותחים את האפליקציה
+     בבוקר, רושמים בצהריים, והרשומה נשמרת עם שעת הבוקר. זה לא רק
+     לא נוח: הוא מזין את גרף שעות האכילה ואת דגל האכילה המאוחרת.
+     מתעדכן גם בחזרה לטאב וגם בחזרה ללשונית, כי בטלפון האפליקציה
+     נשארת פתוחה ברקע לשעות. */
+  useEffect(() => {
+    if (timeTouched || activeTab !== 'log') return
+    const sync = () => setForm((f) => {
+      const now = nowTime()
+      return f.time === now ? f : { ...f, time: now }
+    })
+    sync()
+    const id = setInterval(sync, 30000)
+    window.addEventListener('focus', sync)
+    document.addEventListener('visibilitychange', sync)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('focus', sync)
+      document.removeEventListener('visibilitychange', sync)
+    }
+  }, [timeTouched, activeTab])
+
   /* ================= handlers ================= */
 
   const resetInput = useCallback(() => {
@@ -252,7 +276,9 @@ export default function FoodLog() {
       })
       await reloadDays()
       resetInput()
-      setForm((f) => ({ ...f, desc: '', note: '' }))
+      // הרשומה נשמרה — השעה חוזרת לעקוב אחרי "עכשיו" לרשומה הבאה
+      setTimeTouched(false)
+      setForm((f) => ({ ...f, desc: '', note: '', time: nowTime() }))
       if (fileRef.current) fileRef.current.value = ''
       showToast(t.tr('addedToLog'))
     } catch (e) { fail(e) }
@@ -451,7 +477,8 @@ export default function FoodLog() {
             </select>
 
             <label className="field-label">{t.tr('time')}</label>
-            <input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} />
+            <input type="time" value={form.time}
+              onChange={(e) => { setTimeTouched(true); setForm((f) => ({ ...f, time: e.target.value })) }} />
 
             {logMode === 'manual' ? (
               <>
