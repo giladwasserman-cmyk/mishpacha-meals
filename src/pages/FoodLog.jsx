@@ -20,9 +20,10 @@ import { estimateNutrition, MODEL_SONNET } from '../lib/foodLogApi'
 import {
   makeT, MEALS, FONTS, DEFAULT_FONT, defaultSettings, defaultPlan,
   isoDate, displayDate, shiftDate, nowTime, dayTotals, checkEntry,
-  splurgeCount, fmt, fileToBase64,
+  splurgeCount, fmt, fileToBase64, composeTotals, composeDescription,
 } from '../lib/foodLogCore'
-import { WeekTab, WeightTab, SettingsModal, Flags } from './foodLogPanels'
+import { FOOD_COMPONENTS_SEED } from '../data/foodComponentsSeed'
+import { WeekTab, WeightTab, SettingsModal, Flags, ComposePanel } from './foodLogPanels'
 import './foodlog.css'
 
 const PORTION_SCALES = [0.5, 0.75, 1, 1.5, 2]
@@ -75,6 +76,8 @@ export default function FoodLog() {
   const [timingBuckets, setTimingBuckets] = useState(null)
   const [weights, setWeights] = useState([])
   const [favourites, setFavourites] = useState([])
+  const [components, setComponents] = useState([])
+  const [picks, setPicks] = useState([])
 
   // ---- ui ----
   const [loading, setLoading] = useState(false)
@@ -116,13 +119,15 @@ export default function FoodLog() {
         setDisplayFont(cfg.displayFont)
         setSettings(cfg.settings)
         setPlan(cfg.plan)
-        const [favs, ws] = await Promise.all([
+        const [favs, ws, comps] = await Promise.all([
           store.loadFavourites(userId),
           store.loadWeights(userId),
+          store.loadComponents(userId),
         ])
         if (cancelled) return
         setFavourites(favs)
         setWeights(ws)
+        setComponents(comps)
       } catch (e) {
         if (!cancelled) fail(e)
       } finally {
@@ -278,6 +283,7 @@ export default function FoodLog() {
       resetInput()
       // הרשומה נשמרה — השעה חוזרת לעקוב אחרי "עכשיו" לרשומה הבאה
       setTimeTouched(false)
+      setPicks([])
       setForm((f) => ({ ...f, desc: '', note: '', time: nowTime() }))
       if (fileRef.current) fileRef.current.value = ''
       showToast(t.tr('addedToLog'))
@@ -329,6 +335,47 @@ export default function FoodLog() {
       await store.deleteWeight(userId, dateIso)
       setWeights((ws) => ws.filter((w) => w.date !== dateIso))
     } catch (e) { fail(e) }
+  }
+
+  /* ---- בנק הרכיבים ---- */
+  const seedBank = async () => {
+    setLoading(true)
+    try {
+      setComponents(await store.seedComponents(userId, FOOD_COMPONENTS_SEED))
+      showToast(t.tr('baseSetAdded'))
+    } catch (e) { fail(e) } finally { setLoading(false) }
+  }
+
+  const addComponent = async (c) => {
+    setLoading(true)
+    try {
+      const saved = await store.addComponent(userId, { ...c, sort_order: components.length })
+      setComponents((cs) => [...cs, saved])
+      showToast(t.tr('componentSaved'))
+    } catch (e) { fail(e) } finally { setLoading(false) }
+  }
+
+  const removeComponent = async (c) => {
+    if (!window.confirm(t.tr('confirmDeleteComponent'))) return
+    try {
+      await store.deleteComponent(userId, c.id)
+      setComponents((cs) => cs.filter((x) => x.id !== c.id))
+      setPicks((ps) => ps.filter((p) => p.component.id !== c.id))
+    } catch (e) { fail(e) }
+  }
+
+  /* ההרכבה נכנסת לאותו מסך סקירה של ההערכות. הביטחון הוא "גבוה"
+     כי זה חשבון ולא ניחוש — הרכיבים כבר אושרו על ידך פעם אחת. */
+  const composeToReview = () => {
+    if (!picks.length) return
+    const totals = composeTotals(picks)
+    openReview({
+      ...totals,
+      items: picks.map((p) => ({ name: p.component.name, portion: p.qty + ' × ' + (p.component.unit || '') })),
+      meal: form.meal, time: form.time || nowTime(),
+      description: composeDescription(picks),
+      source: 'compose', confidence: 'high',
+    })
   }
 
   const saveSettings = async (nextSettings, nextPlan) => {
@@ -465,10 +512,10 @@ export default function FoodLog() {
           <div className="section-title">{t.tr('addEntry')}</div>
           <div className="card">
             <div className="mode-toggle">
-              <button className={'mode-btn' + (logMode === 'manual' ? ' active' : '')}
-                onClick={() => { setLogMode('manual'); resetInput() }}>{t.tr('manual')}</button>
-              <button className={'mode-btn' + (logMode === 'photo' ? ' active' : '')}
-                onClick={() => { setLogMode('photo'); resetInput() }}>{t.tr('photo')}</button>
+              {[['manual', 'manual'], ['photo', 'photo'], ['compose', 'compose']].map(([mode, k]) => (
+                <button key={mode} className={'mode-btn' + (logMode === mode ? ' active' : '')}
+                  onClick={() => { setLogMode(mode); resetInput() }}>{t.tr(k)}</button>
+              ))}
             </div>
 
             <label className="field-label">{t.tr('meal')}</label>
@@ -491,7 +538,7 @@ export default function FoodLog() {
                   </button>
                 </div>
               </>
-            ) : (
+            ) : logMode === 'photo' ? (
               <>
                 <label className="field-label">{t.tr('photoOfPlate')}</label>
                 <div className="photo-drop" onClick={() => fileRef.current?.click()}>
@@ -510,6 +557,12 @@ export default function FoodLog() {
                   </button>
                 </div>
               </>
+            ) : (
+              <ComposePanel
+                components={components} picks={picks} setPicks={setPicks}
+                t={t} busy={loading}
+                onSeed={seedBank} onAddComponent={addComponent}
+                onDeleteComponent={removeComponent} onContinue={composeToReview} />
             )}
 
             {error && <div className="error-msg">{error}</div>}
