@@ -49,5 +49,5 @@ export async function estimateNutrition(input, lang, t, { model } = {}) {
   }
   if (data?.error) throw new Error(data.detail ? `${data.error}: ${data.detail}` : data.error)
 
-  return parseEstimate(data)
+  return parseEstimate(data, t)
 }
