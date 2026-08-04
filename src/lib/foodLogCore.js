@@ -90,7 +90,8 @@ export const I18N = {
     editComponent: 'Edit', confirmDeleteComponent: 'Remove this component from the bank?',
     composeEmpty: 'Pick components to build a meal.',
     composeTotal: 'Total', composeContinue: 'Review and add',
-    manageComponents: 'Manage the bank'
+    manageComponents: 'Manage the bank',
+    estimateTruncated: 'The estimate came back cut off. Try splitting the meal into two entries, or describing it more briefly.'
   },
   he: {
     appTitle: 'יומן אכילה', tabLog: 'יומן', tabWeek: 'שבוע', tabWeight: 'משקל', today: 'היום',
@@ -171,7 +172,8 @@ export const I18N = {
     editComponent: 'עריכה', confirmDeleteComponent: 'למחוק את הרכיב מהבנק?',
     composeEmpty: 'בחרו רכיבים כדי להרכיב ארוחה.',
     composeTotal: 'סה״כ', composeContinue: 'לסקירה והוספה',
-    manageComponents: 'ניהול הבנק'
+    manageComponents: 'ניהול הבנק',
+    estimateTruncated: 'התשובה חזרה קטועה. נסו לפצל את הארוחה לשתי רשומות, או לתאר אותה בקצרה יותר.'
   }
 };
 
@@ -381,10 +383,21 @@ export function buildEstimateMessages({ description, meal, imageBase64, imageMed
   return [{ role: 'user', content }];
 }
 
-/* פענוח בלוק הטקסט שחוזר מקלוד — זהה למקור (שורות 415–418) */
-export function parseEstimate(data) {
+/* פענוח בלוק הטקסט שחוזר מקלוד. הניקוי זהה למקור (שורות 415–418);
+   נוסף טיפול בשגיאה, כי המקור נתן ל-JSON.parse ליפול והמשתמש ראה
+   "Unterminated string in JSON at position 401" — הודעה שלא מסבירה
+   כלום. כשהתשובה נקטעה בגלל max_tokens אנחנו יודעים זאת בוודאות
+   מ-stop_reason ואפשר להגיד את זה בשפה של המשתמש. */
+export function parseEstimate(data, t) {
   const tb = (data.content || []).find((b) => b.type === 'text');
-  if (!tb) throw new Error('No estimate returned');
+  if (!tb) throw new Error(t ? t.tr('couldNotEstimate') : 'No estimate returned');
   const clean = tb.text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-  return JSON.parse(clean);
+  try {
+    return JSON.parse(clean);
+  } catch {
+    if (data.stop_reason === 'max_tokens') {
+      throw new Error(t ? t.tr('estimateTruncated') : 'The estimate was cut off. Try describing the meal more briefly.');
+    }
+    throw new Error(t ? t.tr('couldNotEstimate') : 'Could not read the estimate');
+  }
 }
