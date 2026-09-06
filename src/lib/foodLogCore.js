@@ -91,7 +91,9 @@ export const I18N = {
     composeEmpty: 'Pick components to build a meal.',
     composeTotal: 'Total', composeContinue: 'Review and add',
     manageComponents: 'Manage the bank',
-    estimateTruncated: 'The estimate came back cut off. Try splitting the meal into two entries, or describing it more briefly.'
+    estimateTruncated: 'The estimate came back cut off. Try splitting the meal into two entries, or describing it more briefly.',
+    breakdown: 'What makes up this number',
+    breakdownHint: 'Set an item to 0 if it was not on your plate, or raise it if the portion was larger. The total follows.'
   },
   he: {
     appTitle: 'יומן אכילה', tabLog: 'יומן', tabWeek: 'שבוע', tabWeight: 'משקל', today: 'היום',
@@ -173,7 +175,9 @@ export const I18N = {
     composeEmpty: 'בחרו רכיבים כדי להרכיב ארוחה.',
     composeTotal: 'סה״כ', composeContinue: 'לסקירה והוספה',
     manageComponents: 'ניהול הבנק',
-    estimateTruncated: 'התשובה חזרה קטועה. נסו לפצל את הארוחה לשתי רשומות, או לתאר אותה בקצרה יותר.'
+    estimateTruncated: 'התשובה חזרה קטועה. נסו לפצל את הארוחה לשתי רשומות, או לתאר אותה בקצרה יותר.',
+    breakdown: 'ממה מורכב המספר',
+    breakdownHint: 'אפסו פריט שלא היה בצלחת, או העלו אותו אם המנה הייתה גדולה יותר. הסכום מתעדכן בהתאם.'
   }
 };
 
@@ -339,6 +343,33 @@ export function composeTotals(picks) {
   return t;
 }
 
+/* ================= פירוק הערכה לפריטים =================
+   הערכה מחזירה עכשיו ערכים לכל פריט, לא רק סכום אחד. זה מה
+   שהופך את המספר לניתן לביקורת: "40 גר׳ פחמימה" הופך ל"ירקות
+   בקארי 16, טחינה 6, טופו 4" — וסטייה קופצת לעין.
+
+   כל פריט נושא qty (ברירת מחדל 1) כדי שאפשר יהיה להכפיל פריט
+   בודד או לאפס אותו בלי לגעת בשאר. */
+export function itemsHaveMacros(items) {
+  return Array.isArray(items) && items.length > 0 &&
+    items.every((i) => i && MACRO_KEYS.some((k) => Number.isFinite(Number(i[k]))));
+}
+
+export function sumItems(items) {
+  const t = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sodium_mg: 0 };
+  for (const it of items || []) {
+    const q = Number(it.qty ?? 1) || 0;
+    for (const k of MACRO_KEYS) t[k] += (Number(it[k]) || 0) * q;
+  }
+  for (const k of MACRO_KEYS) t[k] = Math.round(t[k] * 10) / 10;
+  return t;
+}
+
+/* פריטים שנשארו בתוקף — qty אפס פירושו "זה לא היה בצלחת" */
+export function activeItems(items) {
+  return (items || []).filter((i) => (Number(i.qty ?? 1) || 0) > 0);
+}
+
 /* "ביצה ×1, חלבון ביצה ×2, גבינה בולגרית 5%" — כמות 1 לא מצוינת */
 export function composeDescription(picks) {
   return picks
@@ -367,7 +398,8 @@ export function buildEstimateMessages({ description, meal, imageBase64, imageMed
   const mealText = t.mealLabel(meal);
   const langName = lang === 'he' ? 'Hebrew' : 'English';
   const schema = 'Return ONLY valid JSON (no markdown fences, no commentary) matching exactly: ' +
-    '{"items":[{"name":"string","portion":"string"}],"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"sodium_mg":number,"confidence":"low"|"medium"|"high"}. ' +
+    '{"items":[{"name":"string","portion":"string","calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"sodium_mg":number}],"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"fiber_g":number,"sodium_mg":number,"confidence":"low"|"medium"|"high"}. ' +
+    'Every item carries its own numbers, and the top-level totals must equal the sum of the items. Break the dish into the parts that actually carry calories — for a curry that means the protein, the vegetables and the sauce separately, not one line called "curry". This lets the user see which part produced which number. ' +
     'Use standard nutrition-database values for common foods and typical adult portions. Israeli supermarket products and restaurant dishes are likely. ' +
     'For drinks, count only the caloric ingredients actually in the cup. Espresso, water, tea and the air whipped into foam add volume but almost no calories, so never treat the total cup volume as if it were all milk — a cappuccino is mostly foam and espresso by volume. ' +
     'When the size is given only as a word like "small", "regular" or "large", do not silently assume a large serving: choose the smaller end of the plausible range, state the assumed amount in "portion", and set confidence to "low". ' +
