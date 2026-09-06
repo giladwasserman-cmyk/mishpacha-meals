@@ -111,6 +111,21 @@
 .foodlog .estimate-note { font-size: 11px; color: var(--ink-faint); margin-top: 8px; font-style: italic; }
 .foodlog .error-msg { color: var(--warn); font-size: 13px; margin-top: 8px; }
 
+/* ---- פירוק ההערכה לפריטים ---- */
+.foodlog .item-breakdown { margin-bottom: 12px; }
+.foodlog .bd-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.foodlog .bd-row:last-of-type { border-bottom: none; }
+.foodlog .bd-row.off { opacity: 0.4; }
+.foodlog .bd-row.off .bd-name { text-decoration: line-through; }
+.foodlog .bd-meta { flex: 1; min-width: 0; }
+.foodlog .bd-name { font-size: 13px; }
+.foodlog .bd-portion { font-size: 10px; color: var(--ink-faint); margin-inline-start: 6px; unicode-bidi: isolate; }
+.foodlog .bd-nums { font-family: var(--font-data); font-size: 10px; color: var(--ink-faint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.foodlog .bd-hint { font-size: 10px; color: var(--ink-faint); margin-top: 8px; line-height: 1.5; font-style: italic; }
+/* בורר כמות מכווץ — בגרסה המלאה שורת המספרים נחתכה ברוחב טלפון */
+.foodlog .bd-row .comp-qty button { width: 24px; height: 24px; font-size: 13px; }
+.foodlog .bd-row .comp-qty input[type=number] { width: 34px; }
+
 .foodlog .review { margin-top: 14px; border-top: 1px dashed var(--line-strong); padding-top: 14px; }
 .foodlog .review .items-list { font-size: 13px; color: var(--ink-soft); margin-bottom: 10px; }
 .foodlog .portion-row { display: flex; gap: 6px; margin: 10px 0; align-items: center; flex-wrap: wrap; }

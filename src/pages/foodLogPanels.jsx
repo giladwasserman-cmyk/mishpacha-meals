@@ -10,6 +10,61 @@ import {
   composeTotals, composeDescription,
 } from '../lib/foodLogCore'
 
+/* ================= פירוק ההערכה לפריטים =================
+   מחליף את שורת "זוהה:" שהראתה שמות בלבד. שם המספר הכולל היה
+   אטום — אי אפשר היה לדעת איזה פריט תרם את הפחמימות. כאן רואים
+   כמה כל פריט תרם, אפשר להכפיל פריט שהוערך קטן מדי, ואפשר לאפס
+   פריט שלא היה בצלחת. הסכום מתעדכן בהתאם. */
+export function ItemBreakdown({ items, setItems, t, scale = 1 }) {
+  const L = t.locale()
+  if (!items?.length) return null
+  const r1 = (n) => Math.round(n * 10) / 10
+
+  const setQty = (idx, qty) =>
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, qty: Math.max(0, qty) } : it))
+  const bump = (idx, delta) =>
+    setItems((prev) => prev.map((it, i) => {
+      if (i !== idx) return it
+      const cur = Number(it.qty ?? 1) || 0
+      return { ...it, qty: Math.max(0, Math.round((cur + delta) * 10) / 10) }
+    }))
+
+  return (
+    <div className="item-breakdown">
+      <div className="plabel">{t.tr('breakdown')}</div>
+      {items.map((it, idx) => {
+        const q = Number(it.qty ?? 1) || 0
+        const eff = q * scale // מה שבאמת נספר: כמות הפריט × מנת המנה
+        const off = q === 0
+        return (
+          <div className={'bd-row' + (off ? ' off' : '')} key={idx}>
+            <div className="bd-meta">
+              <div className="bd-name">
+                {it.name}{it.portion && <span className="bd-portion">{it.portion}</span>}
+              </div>
+              {/* קלוריות, חלבון ופחמימות בלבד — ארבעה ערכים נחתכים
+                  ברוחב טלפון, ואלה השלושה שהתוכנית נשענת עליהם.
+                  השומן והנתרן נשארים בשדות הסיכום מתחת. */}
+              <div className="bd-nums">
+                {fmt((Number(it.calories) || 0) * eff, L)} {t.tr('kcal')} ·{' '}
+                {t.tr('abbrProtein')} {r1((Number(it.protein_g) || 0) * eff)} ·{' '}
+                {t.tr('abbrCarbs')} {r1((Number(it.carbs_g) || 0) * eff)}
+              </div>
+            </div>
+            <div className="comp-qty">
+              <button onClick={() => bump(idx, -0.5)} disabled={q <= 0} aria-label="-">−</button>
+              <input type="number" step="0.1" min="0" value={q}
+                onChange={(e) => setQty(idx, Number(e.target.value) || 0)} />
+              <button onClick={() => bump(idx, 0.5)} aria-label="+">+</button>
+            </div>
+          </div>
+        )
+      })}
+      <div className="bd-hint">{t.tr('breakdownHint')}</div>
+    </div>
+  )
+}
+
 /* דגלי בדיקת התוכנית — flagsHtml במקור (שורות 591–594) */
 export function Flags({ flags }) {
   if (!flags?.length) return null

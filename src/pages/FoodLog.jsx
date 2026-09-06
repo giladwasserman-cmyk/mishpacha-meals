@@ -21,9 +21,10 @@ import {
   makeT, MEALS, FONTS, DEFAULT_FONT, defaultSettings, defaultPlan,
   isoDate, displayDate, shiftDate, nowTime, dayTotals, checkEntry,
   splurgeCount, fmt, fileToBase64, composeTotals, composeDescription,
+  itemsHaveMacros, sumItems, activeItems,
 } from '../lib/foodLogCore'
 import { FOOD_COMPONENTS_SEED } from '../data/foodComponentsSeed'
-import { WeekTab, WeightTab, SettingsModal, Flags, ComposePanel } from './foodLogPanels'
+import { WeekTab, WeightTab, SettingsModal, Flags, ComposePanel, ItemBreakdown } from './foodLogPanels'
 import './foodlog.css'
 
 const PORTION_SCALES = [0.5, 0.75, 1, 1.5, 2]
@@ -92,6 +93,7 @@ export default function FoodLog() {
   const [reviewBase, setReviewBase] = useState(null)
   const [reviewScale, setReviewScale] = useState(1)
   const [reviewFields, setReviewFields] = useState(null)
+  const [reviewItems, setReviewItems] = useState(null) // null = ההערכה לא החזירה ערכים לפריט
 
   const fileRef = useRef(null)
   const toastTimer = useRef(null)
@@ -201,7 +203,7 @@ export default function FoodLog() {
   /* ================= handlers ================= */
 
   const resetInput = useCallback(() => {
-    setReviewBase(null); setReviewScale(1); setReviewFields(null)
+    setReviewBase(null); setReviewScale(1); setReviewFields(null); setReviewItems(null)
     setError(null); setPhoto(null)
   }, [])
 
@@ -220,12 +222,41 @@ export default function FoodLog() {
     try { await store.saveConfig(userId, { settings, plan, displayFont: key }) } catch (e) { fail(e) }
   }
 
+  /* כשההערכה מחזירה ערכים לכל פריט, הסכום נגזר מהפריטים ולא
+     מהשדות העליונים — אחרת שינוי פריט לא היה משפיע על הסכום.
+     אם הפריטים לא נושאים ערכים (תשובה חלקית), נופלים בחזרה
+     להתנהגות הקודמת: הסכום מהשדות העליונים ובלי פירוט. */
   const openReview = (base) => {
-    setReviewBase(base); setReviewScale(1); setReviewFields(scaleFields(base, 1))
+    setReviewBase(base)
+    setReviewScale(1)
+    if (itemsHaveMacros(base.items)) {
+      const items = base.items.map((i) => ({ ...i, qty: 1 }))
+      setReviewItems(items)
+      setReviewFields(sumItems(items))
+    } else {
+      setReviewItems(null)
+      setReviewFields(scaleFields(base, 1))
+    }
   }
+
+  /* שני מכפילים בלתי תלויים: qty לכל פריט (עריכה נקודתית) וה-scale
+     הכללי של המנה. הכפלתם נעשית רק בזמן החישוב ולא נצרבת ל-qty,
+     אחרת מעבר ×2 ואז ×0.5 היה מצטבר במקום לחזור למקור. */
+  const withScale = (items, s) =>
+    (items || []).map((i) => ({ ...i, qty: (Number(i.qty ?? 1) || 0) * s }))
+
   const changeScale = (s) => {
     setReviewScale(s)
-    setReviewFields(scaleFields(reviewBase, s))
+    setReviewFields(reviewItems ? sumItems(withScale(reviewItems, s)) : scaleFields(reviewBase, s))
+  }
+
+  /* עריכת פריט מחשבת מחדש את הסכום */
+  const updateItems = (updater) => {
+    setReviewItems((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      setReviewFields(sumItems(withScale(next, reviewScale)))
+      return next
+    })
   }
 
   /* Sonnet ולא ברירת המחדל Haiku — מסלול השדרוג שהשלד הגדיר מראש
@@ -274,9 +305,15 @@ export default function FoodLog() {
 
   const confirmAdd = async () => {
     const r = reviewBase
+    /* אם איפסת פריט, הוא לא היה בצלחת — התיאור שנשמר לא צריך
+       להזכיר אותו, אחרת הרשומה סותרת את המספרים שלה. */
+    const kept = reviewItems ? activeItems(reviewItems) : null
+    const description = (kept && kept.length && kept.length !== reviewItems.length)
+      ? kept.map((i) => i.name).join(', ')
+      : r.description
     try {
       await store.addEntry(userId, currentDate, {
-        time: r.time || nowTime(), meal: r.meal, description: r.description,
+        time: r.time || nowTime(), meal: r.meal, description,
         source: r.source, confidence: r.confidence, ...reviewFields,
       })
       await reloadDays()
@@ -369,9 +406,20 @@ export default function FoodLog() {
   const composeToReview = () => {
     if (!picks.length) return
     const totals = composeTotals(picks)
+    /* הפריטים נושאים את הערכים של הרכיב, כך שההרכבה מקבלת את אותו
+       פירוק כמו הערכה מהמודל — ואפשר לכוונן פריט בודד גם כאן. */
     openReview({
       ...totals,
-      items: picks.map((p) => ({ name: p.component.name, portion: p.qty + ' × ' + (p.component.unit || '') })),
+      items: picks.map((p) => ({
+        name: p.component.name,
+        portion: p.qty + ' × ' + (p.component.unit || ''),
+        calories: (Number(p.component.calories) || 0) * p.qty,
+        protein_g: (Number(p.component.protein_g) || 0) * p.qty,
+        carbs_g: (Number(p.component.carbs_g) || 0) * p.qty,
+        fat_g: (Number(p.component.fat_g) || 0) * p.qty,
+        fiber_g: (Number(p.component.fiber_g) || 0) * p.qty,
+        sodium_mg: (Number(p.component.sodium_mg) || 0) * p.qty,
+      })),
       meal: form.meal, time: form.time || nowTime(),
       description: composeDescription(picks),
       source: 'compose', confidence: 'high',
@@ -570,10 +618,14 @@ export default function FoodLog() {
 
             {reviewBase && reviewFields && (
               <div className="review">
-                <div className="items-list">
-                  <strong>{t.tr('identified')}</strong>{' '}
-                  {(reviewBase.items || []).map((i) => i.name + (i.portion ? ` (${i.portion})` : '')).join(', ') || '—'}
-                </div>
+                {reviewItems ? (
+                  <ItemBreakdown items={reviewItems} setItems={updateItems} t={t} scale={reviewScale} />
+                ) : (
+                  <div className="items-list">
+                    <strong>{t.tr('identified')}</strong>{' '}
+                    {(reviewBase.items || []).map((i) => i.name + (i.portion ? ` (${i.portion})` : '')).join(', ') || '—'}
+                  </div>
+                )}
 
                 <div className="portion-row">
                   <span className="plabel">{t.tr('portionLabel')}</span>
